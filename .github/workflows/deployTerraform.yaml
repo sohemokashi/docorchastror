@@ -1,0 +1,161 @@
+name: Deploy Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      tf_action:
+        description: "Terraform action (apply or destroy)"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+      environment:
+        description: "Environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.7.5'
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Setup Node.js
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Lambda dependencies
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        working-directory: lambda
+        run: |
+          echo "Installing Lambda dependencies..."
+          npm install --production
+          echo "✅ Lambda dependencies installed"
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -reconfigure
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: |
+          terraform plan \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -out=tfplan
+
+      - name: Empty S3 bucket (before destroy)
+        if: ${{ github.event.inputs.tf_action == 'destroy' }}
+        working-directory: terraform
+        run: |
+          S3_BUCKET=$(terraform output -raw s3_bucket_name 2>/dev/null || echo "")
+          if [ ! -z "$S3_BUCKET" ]; then
+            echo "Emptying S3 bucket: $S3_BUCKET"
+            aws s3 rm s3://$S3_BUCKET/ --recursive || true
+          fi
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        working-directory: terraform
+        run: terraform apply -auto-approve tfplan
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.tf_action == 'destroy' }}
+        working-directory: terraform
+        run: |
+          terraform destroy \
+            -var="environment=${{ github.event.inputs.environment }}" \
+            -auto-approve
+
+      - name: Get Terraform outputs
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        id: tf_outputs
+        working-directory: terraform
+        run: |
+          echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
+          echo "s3_bucket=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+          echo "s3_website_url=$(terraform output -raw s3_website_url)" >> $GITHUB_OUTPUT
+
+      - name: Build frontend
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        working-directory: frontend
+        env:
+          VITE_API_ENDPOINT: ${{ steps.tf_outputs.outputs.api_endpoint }}
+        run: |
+          echo "Building frontend with API endpoint: $VITE_API_ENDPOINT"
+          npm install
+          npm run build
+
+      - name: Deploy frontend to S3
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        run: |
+          echo "Deploying frontend to S3..."
+          aws s3 sync frontend/dist/ s3://${{ steps.tf_outputs.outputs.s3_bucket }}/ --delete
+          echo "✅ Frontend deployed successfully"
+
+      - name: Test API health
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        run: |
+          echo "Testing API health endpoint..."
+          sleep 5
+          curl -f ${{ steps.tf_outputs.outputs.api_endpoint }}/health || true
+
+      - name: Deployment Summary
+        if: ${{ github.event.inputs.tf_action == 'apply' }}
+        run: |
+          echo "========================================="
+          echo "🎉 Deployment Complete!"
+          echo "========================================="
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Frontend URL: ${{ steps.tf_outputs.outputs.s3_website_url }}"
+          echo "API Endpoint: ${{ steps.tf_outputs.outputs.api_endpoint }}"
+          echo ""
+          echo "Test the API:"
+          echo "curl -X POST ${{ steps.tf_outputs.outputs.api_endpoint }}/generate-task \\"
+          echo "  -H 'Content-Type: application/json' \\"
+          echo "  -d '{\"prompt\": \"I want to install python\"}'"
+          echo ""
+          echo "========================================="
+
+      - name: Destroy Summary
+        if: ${{ github.event.inputs.tf_action == 'destroy' }}
+        run: |
+          echo "========================================="
+          echo "🗑️  Infrastructure Destroyed"
+          echo "========================================="
+          echo ""
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "All resources have been removed."
+          echo ""
+          echo "========================================="
