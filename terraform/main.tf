@@ -12,12 +12,12 @@ terraform {
     }
   }
 
-  backend "s3" {
-    # Configure this based on your needs
-    # bucket = "your-terraform-state-bucket"
-    # key    = "task-generator/terraform.tfstate"
-    # region = "us-east-1"
-  }
+  # Backend configuration - uncomment and configure for remote state
+  # backend "s3" {
+  #   bucket = "your-terraform-state-bucket"
+  #   key    = "task-generator/terraform.tfstate"
+  #   region = "us-east-1"
+  # }
 }
 
 provider "aws" {
