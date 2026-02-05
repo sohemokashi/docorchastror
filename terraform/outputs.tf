@@ -1,10 +1,20 @@
+output "cloudfront_url" {
+  description = "CloudFront distribution URL"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID"
+  value       = aws_cloudfront_distribution.frontend.id
+}
+
 output "api_endpoint" {
-  description = "API Gateway endpoint URL"
-  value       = "${aws_apigatewayv2_api.main.api_endpoint}/${var.api_gateway_stage_name}/api"
+  description = "API Gateway endpoint URL (via CloudFront)"
+  value       = "https://${aws_cloudfront_distribution.frontend.domain_name}/api"
 }
 
 output "api_gateway_url" {
-  description = "Full API Gateway URL"
+  description = "Direct API Gateway URL"
   value       = aws_apigatewayv2_api.main.api_endpoint
 }
 
@@ -23,42 +33,21 @@ output "s3_bucket_name" {
   value       = aws_s3_bucket.frontend.id
 }
 
-output "s3_website_endpoint" {
-  description = "S3 website endpoint"
-  value       = aws_s3_bucket_website_configuration.frontend.website_endpoint
-}
-
-output "s3_website_url" {
-  description = "S3 website URL"
-  value       = "http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}"
-}
-
 output "deployment_instructions" {
   description = "Next steps for deployment"
   value = <<-EOT
   
   Deployment Complete! 🎉
   
-  Next Steps:
+  Frontend URL: https://${aws_cloudfront_distribution.frontend.domain_name}
+  API Endpoint: https://${aws_cloudfront_distribution.frontend.domain_name}/api
   
-  1. Update frontend environment:
-     Create frontend/.env with:
-     VITE_API_ENDPOINT=${aws_apigatewayv2_api.main.api_endpoint}/${var.api_gateway_stage_name}/api
+  Note: CloudFront distribution may take 5-10 minutes to fully deploy.
   
-  2. Build and deploy frontend:
-     cd ../frontend
-     npm install
-     npm run build
-     aws s3 sync dist/ s3://${aws_s3_bucket.frontend.id}/
-  
-  3. Access your application:
-     Frontend: http://${aws_s3_bucket_website_configuration.frontend.website_endpoint}
-     API: ${aws_apigatewayv2_api.main.api_endpoint}/${var.api_gateway_stage_name}/api
-  
-  4. Test the API:
-     curl -X POST ${aws_apigatewayv2_api.main.api_endpoint}/${var.api_gateway_stage_name}/api/generate-task \
-       -H "Content-Type: application/json" \
-       -d '{"prompt": "I want to install python"}'
+  Test the API:
+  curl -X POST https://${aws_cloudfront_distribution.frontend.domain_name}/api/generate-task \
+    -H "Content-Type: application/json" \
+    -d '{"prompt": "I want to install python"}'
   
   EOT
 }

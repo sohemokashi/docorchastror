@@ -85,8 +85,9 @@ jobs:
         working-directory: terraform
         run: |
           echo "s3_bucket=$(terraform output -raw s3_bucket_name)" >> $GITHUB_OUTPUT
+          echo "cloudfront_id=$(terraform output -raw cloudfront_distribution_id)" >> $GITHUB_OUTPUT
+          echo "cloudfront_url=$(terraform output -raw cloudfront_url)" >> $GITHUB_OUTPUT
           echo "api_endpoint=$(terraform output -raw api_endpoint)" >> $GITHUB_OUTPUT
-          echo "s3_website_url=$(terraform output -raw s3_website_url)" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         if: ${{ github.event.inputs.tf_apply == 'true' }}
@@ -108,6 +109,13 @@ jobs:
         run: |
           aws s3 sync frontend/dist/ s3://${{ steps.tf_outputs.outputs.s3_bucket }}/ --delete
 
+      - name: Invalidate CloudFront cache
+        if: ${{ github.event.inputs.tf_apply == 'true' }}
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ steps.tf_outputs.outputs.cloudfront_id }} \
+            --paths "/*"
+
       - name: Test API health
         if: ${{ github.event.inputs.tf_apply == 'true' }}
         run: |
@@ -115,8 +123,10 @@ jobs:
           sleep 5
           curl -f ${{ steps.tf_outputs.outputs.api_endpoint }}/health || echo "Health check skipped"
 
-      - name: Deployment Summary
-        if: ${{ github.event.inputs.tf_apply == 'true' }}
+      - name: Deployment Summarycloudfront_url }}"
+          echo "API Endpoint: ${{ steps.tf_outputs.outputs.api_endpoint }}"
+          echo ""
+          echo "Note: CloudFront may take 5-10 minutes to fully deploy.
         run: |
           echo "========================================="
           echo "🎉 Deployment Complete!"

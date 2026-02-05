@@ -72,7 +72,6 @@ resource "aws_lambda_function" "task_generator" {
 
   environment {
     variables = {
-      AWS_REGION       = var.aws_region
       BEDROCK_MODEL_ID = var.bedrock_model_id
       ENVIRONMENT      = var.environment
       PROJECT          = var.project_name
