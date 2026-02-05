@@ -77,6 +77,7 @@ jobs:
           terraform import aws_s3_bucket.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
           terraform import aws_iam_role.lambda_role task-generator-dev-lambda-role || true
           terraform import aws_lambda_function.task_generator task-generator-dev-api || true
+          terraform import aws_lambda_permission.api_gateway task-generator-dev-api/AllowAPIGatewayInvoke || true
           terraform import aws_cloudwatch_log_group.api_gateway_logs /aws/apigateway/task-generator-dev || true
           terraform import aws_cloudwatch_log_group.lambda_logs /aws/lambda/task-generator-dev-api || true
           terraform import aws_cloudfront_origin_access_control.frontend $(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='task-generator-dev-oac'].Id" --output text) || true
