@@ -123,17 +123,17 @@ jobs:
           sleep 5
           curl -f ${{ steps.tf_outputs.outputs.api_endpoint }}/health || echo "Health check skipped"
 
-      - name: Deployment Summarycloudfront_url }}"
-          echo "API Endpoint: ${{ steps.tf_outputs.outputs.api_endpoint }}"
-          echo ""
-          echo "Note: CloudFront may take 5-10 minutes to fully deploy.
+      - name: Deployment Summary
+        if: ${{ github.event.inputs.tf_apply == 'true' }}
         run: |
           echo "========================================="
           echo "🎉 Deployment Complete!"
           echo "========================================="
           echo ""
-          echo "Frontend URL: ${{ steps.tf_outputs.outputs.s3_website_url }}"
+          echo "Frontend URL: ${{ steps.tf_outputs.outputs.cloudfront_url }}"
           echo "API Endpoint: ${{ steps.tf_outputs.outputs.api_endpoint }}"
+          echo ""
+          echo "Note: CloudFront may take 5-10 minutes to fully deploy."
           echo ""
           echo "Test the API:"
           echo "curl -X POST ${{ steps.tf_outputs.outputs.api_endpoint }}/generate-task \\"
