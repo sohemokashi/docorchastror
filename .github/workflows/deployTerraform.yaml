@@ -73,16 +73,67 @@ jobs:
         working-directory: terraform
         continue-on-error: true
         run: |
-          # Import existing resources to avoid conflicts
+          echo "Importing existing AWS resources to prevent duplicates..."
+          
+          # Get API Gateway ID if exists
+          API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='task-generator-dev-api'] | [0].ApiId" --output text 2>/dev/null || echo "")
+          
+          # Get CloudFront Distribution ID if exists
+          CF_DIST_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Comment=='task-generator-dev CloudFront'].Id | [0]" --output text 2>/dev/null || echo "")
+          
+          # Import S3 and IAM resources
           terraform import aws_s3_bucket.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          terraform import aws_s3_bucket_versioning.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          terraform import aws_s3_bucket_server_side_encryption_configuration.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          terraform import aws_s3_bucket_public_access_block.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          terraform import aws_s3_bucket_policy.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          
+          # Import IAM resources
           terraform import aws_iam_role.lambda_role task-generator-dev-lambda-role || true
+          terraform import aws_iam_role_policy.bedrock_access task-generator-dev-lambda-role:task-generator-dev-bedrock-access || true
+          
+          # Import Lambda resources
           terraform import aws_lambda_function.task_generator task-generator-dev-api || true
           terraform import aws_lambda_permission.api_gateway task-generator-dev-api/AllowAPIGatewayInvoke || true
+          
+          # Import CloudWatch Log Groups
           terraform import aws_cloudwatch_log_group.api_gateway_logs /aws/apigateway/task-generator-dev || true
           terraform import aws_cloudwatch_log_group.lambda_logs /aws/lambda/task-generator-dev-api || true
-          terraform import aws_cloudfront_origin_access_control.frontend $(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='task-generator-dev-oac'].Id" --output text) || true
+          
+          # Import API Gateway resources if they exist
+          if [ ! -z "$API_ID" ] && [ "$API_ID" != "None" ]; then
+            echo "Found existing API Gateway: $API_ID"
+            terraform import aws_apigatewayv2_api.main $API_ID || true
+            terraform import aws_apigatewayv2_stage.main $API_ID/v1 || true
+            
+            # Get integration and route IDs
+            INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id $API_ID --query "Items[0].IntegrationId" --output text 2>/dev/null || echo "")
+            ROUTE_ID=$(aws apigatewayv2 get-routes --api-id $API_ID --query "Items[?RouteKey=='\$default'].RouteId | [0]" --output text 2>/dev/null || echo "")
+            
+            if [ ! -z "$INTEGRATION_ID" ] && [ "$INTEGRATION_ID" != "None" ]; then
+              terraform import aws_apigatewayv2_integration.lambda $API_ID/$INTEGRATION_ID || true
+            fi
+            
+            if [ ! -z "$ROUTE_ID" ] && [ "$ROUTE_ID" != "None" ]; then
+              terraform import aws_apigatewayv2_route.default $API_ID/$ROUTE_ID || true
+            fi
+          fi
+          
+          # Import CloudFront resources
+          OAC_ID=$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='task-generator-dev-oac'].Id" --output text 2>/dev/null || echo "")
+          if [ ! -z "$OAC_ID" ] && [ "$OAC_ID" != "None" ]; then
+            terraform import aws_cloudfront_origin_access_control.frontend $OAC_ID || true
+          fi
+          
           terraform import aws_cloudfront_function.spa_rewrite task-generator-dev-spa-rewrite || true
           terraform import aws_cloudfront_function.api_path_rewrite task-generator-dev-api-path-rewrite || true
+          
+          if [ ! -z "$CF_DIST_ID" ] && [ "$CF_DIST_ID" != "None" ]; then
+            echo "Found existing CloudFront Distribution: $CF_DIST_ID"
+            terraform import aws_cloudfront_distribution.frontend $CF_DIST_ID || true
+          fi
+          
+          echo "Import complete. Terraform will now manage existing resources."
 
       - name: Terraform Validate
         working-directory: terraform
