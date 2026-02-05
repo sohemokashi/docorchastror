@@ -21,38 +21,44 @@ resource "aws_s3_bucket_website_configuration" "frontend" {
   }
 }
 
-resource "aws_s3_bucket_ownership_controls" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  rule {
-    object_ownership = "BucketOwnerPreferred"
-  }
-}
-
+# Block public access (CloudFront will access via OAC)
 resource "aws_s3_bucket_public_access_block" "frontend" {
   bucket = aws_s3_bucket.frontend.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_acl" "frontend" {
-  depends_on = [
-    aws_s3_bucket_ownership_controls.frontend,
-    aws_s3_bucket_public_access_block.frontend
-  ]
-
+# S3 bucket policy for CloudFront OAC
+resource "aws_s3_bucket_policy" "frontend" {
   bucket = aws_s3_bucket.frontend.id
-  acl    = "public-read"
+  policy = data.aws_iam_policy_document.s3_cloudfront_policy.json
 }
 
-# Bucket policy removed - keeping bucket private
-# For public access, you would need to:
-# 1. Disable Block Public Access at the account level, OR
-# 2. Use CloudFront with OAI, OR
-# 3. Use signed URLs
+data "aws_iam_policy_document" "s3_cloudfront_policy" {
+  statement {
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.frontend.arn}/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.frontend.arn]
+    }
+  }
+}
 
 ########################################
 # Data Source for Account ID

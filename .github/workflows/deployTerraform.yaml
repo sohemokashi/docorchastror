@@ -75,6 +75,9 @@ jobs:
           terraform import aws_iam_role.lambda_role task-generator-dev-lambda-role || true
           terraform import aws_cloudwatch_log_group.api_gateway_logs /aws/apigateway/task-generator-dev || true
           terraform import aws_cloudwatch_log_group.lambda_logs /aws/lambda/task-generator-dev-api || true
+          terraform import aws_cloudfront_origin_access_control.frontend $(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='task-generator-dev-oac'].Id" --output text) || true
+          terraform import aws_cloudfront_function.spa_rewrite task-generator-dev-spa-rewrite || true
+          terraform import aws_cloudfront_function.api_path_rewrite task-generator-dev-api-path-rewrite || true
 
       - name: Terraform Validate
         working-directory: terraform
