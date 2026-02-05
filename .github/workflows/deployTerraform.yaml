@@ -66,6 +66,16 @@ jobs:
         working-directory: terraform
         run: terraform init -reconfigure
 
+      - name: Import existing resources (if any)
+        working-directory: terraform
+        continue-on-error: true
+        run: |
+          # Import existing resources to avoid conflicts
+          terraform import aws_s3_bucket.frontend task-generator-dev-frontend-${{ secrets.ACCOUNTID }} || true
+          terraform import aws_iam_role.lambda_role task-generator-dev-lambda-role || true
+          terraform import aws_cloudwatch_log_group.api_gateway_logs /aws/apigateway/task-generator-dev || true
+          terraform import aws_cloudwatch_log_group.lambda_logs /aws/lambda/task-generator-dev-api || true
+
       - name: Terraform Validate
         working-directory: terraform
         run: terraform validate
