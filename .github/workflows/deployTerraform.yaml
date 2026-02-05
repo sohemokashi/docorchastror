@@ -57,9 +57,12 @@ jobs:
             exit 1
           fi
 
-          npm install --omit=dev
+          # Clean install to ensure fresh dependencies
+          rm -rf node_modules package-lock.json
+          npm install --production
 
           echo "✅ Lambda dependencies installed successfully"
+          ls -la node_modules/ | head -20
           cd ..
 
       - name: Terraform Init

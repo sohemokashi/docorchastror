@@ -6,7 +6,7 @@ data "archive_file" "lambda_zip" {
   type        = "zip"
   source_dir  = "${path.module}/../lambda"
   output_path = "${path.module}/.terraform/archive/task-generator-lambda.zip"
-  excludes    = ["node_modules", "package-lock.json", ".env", "README.md"]
+  excludes    = ["package-lock.json", ".env", "README.md"]
 }
 
 ########################################
