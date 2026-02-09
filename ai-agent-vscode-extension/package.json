@@ -1,0 +1,114 @@
+{
+  "name": "ai-agent-developer",
+  "displayName": "AI Agent Developer",
+  "description": "Autonomous AI agents for development environment setup",
+  "version": "0.1.0",
+  "publisher": "your-publisher-name",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Machine Learning",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "aiAgent.setupEnvironment",
+        "title": "AI Agent: Setup Environment"
+      },
+      {
+        "command": "aiAgent.installTool",
+        "title": "AI Agent: Install Tool"
+      },
+      {
+        "command": "aiAgent.openChat",
+        "title": "AI Agent: Open Chat"
+      },
+      {
+        "command": "aiAgent.checkSystem",
+        "title": "AI Agent: Check System"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-agent-sidebar",
+          "title": "AI Agent",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "ai-agent-sidebar": [
+        {
+          "id": "aiAgent.chatView",
+          "name": "Agent Chat",
+          "type": "webview"
+        },
+        {
+          "id": "aiAgent.taskView",
+          "name": "Active Tasks"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Agent Developer",
+      "properties": {
+        "aiAgent.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic API Key for Claude",
+          "markdownDescription": "Your Anthropic API key. Get one at https://console.anthropic.com/"
+        },
+        "aiAgent.model": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-20241022",
+          "enum": [
+            "claude-3-5-sonnet-20241022",
+            "claude-3-opus-20240229",
+            "claude-3-haiku-20240307"
+          ],
+          "description": "Claude model to use"
+        },
+        "aiAgent.autoExecute": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically execute agent plans without confirmation"
+        },
+        "aiAgent.maxTokens": {
+          "type": "number",
+          "default": 4096,
+          "description": "Maximum tokens per API request"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.27.0",
+    "axios": "^1.6.0"
+  }
+}
